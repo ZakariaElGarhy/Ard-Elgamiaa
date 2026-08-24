@@ -62,7 +62,7 @@ async function getAdminData(res) {
     });
 
     const rows = response.data.values || [];
-    return res.json({ success: true, data: rows, rows });
+    return res.json({ success: true, data: rows, rows, submissions: rows });
   } catch (err) {
     console.error('ADMIN_ERROR:', err);
     return res.status(500).json({ error: err.message });
@@ -71,29 +71,29 @@ async function getAdminData(res) {
 
 // Dedicated Admin Auth Handler
 async function handleAdminAuth(req, res) {
-  const password = req.body.password || req.body.pass || req.body.adminPassword;
+  const password = req.body?.password || req.body?.pass || req.body?.adminPassword || req.query?.password;
   const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
 
-  if (String(password || '').trim() !== ADMIN_PASS) {
+  if (req.method === 'POST' && password && String(password).trim() !== ADMIN_PASS) {
     return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
   }
 
   return getAdminData(res);
 }
 
-// Express Routes for Admin
-app.post('/api/admin/login', handleAdminAuth);
-app.post('/api/admin/get-data', handleAdminAuth);
-app.post('/api/admin/data', handleAdminAuth);
+// Express Routes for Admin (Handles GET & POST)
+app.all('/api/admin/submissions', handleAdminAuth);
+app.all('/api/admin/login', handleAdminAuth);
+app.all('/api/admin/get-data', handleAdminAuth);
+app.all('/api/admin/data', handleAdminAuth);
 
-// User Login Endpoint (Includes Admin Password Intercept)
+// User Login Endpoint (Includes Admin Intercept)
 app.post('/api/auth/login', async (req, res) => {
   const { phone, password, pass, adminPassword } = req.body;
   const inputPass = String(password || pass || adminPassword || '').trim();
   const inputPhone = String(phone || '').trim();
   const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
 
-  // Intercept Admin Login Attempt
   if (inputPass === ADMIN_PASS && (inputPhone === '01000000000' || inputPhone === '1000000000' || inputPhone === '' || inputPhone === 'admin')) {
     return getAdminData(res);
   }
