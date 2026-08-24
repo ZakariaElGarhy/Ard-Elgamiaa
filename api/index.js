@@ -49,8 +49,6 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-// Fetch sheet rows for admin
-// Fetch sheet rows for admin
 async function getAdminData(req, res) {
   try {
     const sheets = getSheetsClient();
@@ -62,14 +60,57 @@ async function getAdminData(req, res) {
       range: 'Sheet1!A:Z',
     });
 
-    const rows = response.data.values || [];
+    const rawRows = response.data.values || [];
 
-    // Return direct array if frontend expects a raw array (e.g., /api/admin/submissions)
+    // Remove the table header row if it exists
+    const dataRows = (rawRows.length > 0 && rawRows[0][0] === 'رقم الطلب') 
+      ? rawRows.slice(1) 
+      : rawRows;
+
+    // Convert raw array rows into formatted objects matching admin.js keys
+    const formattedData = dataRows.map((r, index) => ({
+      id: r[0] || (index + 1),
+      full_name: r[1] || 'لا يوجد',
+      national_id: r[2] || 'لا يوجد',
+      dob: r[3] || '',
+      birth_governorate: r[4] || '',
+      job_title: r[5] || '',
+      job_grade: r[6] || '',
+      membership_status: r[7] || '',
+      phone: r[8] || 'لا يوجد',
+      whatsapp_no: r[9] || '',
+      landline_no: r[10] || '',
+      email: r[11] || '',
+      governorate: r[12] || '',
+      city: r[13] || '',
+      district: r[14] || '',
+      detailed_address: r[15] || '',
+      membership_no: r[16] || '',
+      join_date: r[17] || '',
+      plot_no: r[18] || 'لا يوجد',
+      plot_area: r[19] || '0',
+      construction_status: r[20] || '',
+      residency_status: r[21] || '',
+      emergency_name: r[22] || '',
+      emergency_kinship: r[23] || '',
+      emergency_phone: r[24] || '',
+      doc_id_file: r[25] && r[25] !== 'لا يوجد' ? r[25] : null,
+      doc_auth_file: r[26] && r[26] !== 'لا يوجد' ? r[26] : null,
+      signature: r[27] && r[27] !== 'لا يوجد' ? r[27] : null,
+      created_at: r[28] || ''
+    }));
+
+    // Handle direct array returns for /api/admin/submissions
     if (req.originalUrl && req.originalUrl.includes('submissions')) {
-      return res.json(rows);
+      return res.json(formattedData);
     }
 
-    return res.json({ success: true, data: rows, rows, submissions: rows });
+    return res.json({ 
+      success: true, 
+      data: formattedData, 
+      rows: formattedData, 
+      submissions: formattedData 
+    });
   } catch (err) {
     console.error('ADMIN_ERROR:', err);
     return res.status(500).json({ error: err.message });
