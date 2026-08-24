@@ -50,7 +50,8 @@ function getSheetsClient() {
 }
 
 // Fetch sheet rows for admin
-async function getAdminData(res) {
+// Fetch sheet rows for admin
+async function getAdminData(req, res) {
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -62,6 +63,12 @@ async function getAdminData(res) {
     });
 
     const rows = response.data.values || [];
+
+    // Return direct array if frontend expects a raw array (e.g., /api/admin/submissions)
+    if (req.originalUrl && req.originalUrl.includes('submissions')) {
+      return res.json(rows);
+    }
+
     return res.json({ success: true, data: rows, rows, submissions: rows });
   } catch (err) {
     console.error('ADMIN_ERROR:', err);
@@ -78,8 +85,9 @@ async function handleAdminAuth(req, res) {
     return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
   }
 
-  return getAdminData(res);
+  return getAdminData(req, res);
 }
+
 
 // Express Routes for Admin (Handles GET & POST)
 app.all('/api/admin/submissions', handleAdminAuth);
