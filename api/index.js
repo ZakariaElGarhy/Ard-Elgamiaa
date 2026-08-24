@@ -13,28 +13,23 @@ const EXCEL_HEADER_ROW = [
 ];
 
 function getSheetsClient() {
-  if (!process.env.GOOGLE_CREDENTIALS) {
-    throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS is not set in Vercel');
+  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
+  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
+
+  if (!clientEmail || !privateKey) {
+    throw new Error('MISSING_ENV_VARS: Make sure GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY are set.');
   }
 
-  let credentials;
-  try {
-    credentials = typeof process.env.GOOGLE_CREDENTIALS === 'string'
-      ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
-      : process.env.GOOGLE_CREDENTIALS;
-  } catch (e) {
-    throw new Error('FAILED_TO_PARSE: GOOGLE_CREDENTIALS is not valid JSON');
-  }
+  // Sanitize key breaks in case Vercel wraps or escapes them
+  privateKey = privateKey.replace(/^"(.*)"$/, '$1').replace(/\\n/g, '\n');
 
-  // Convert literal '\n' characters into real line breaks required by RSA JWT signatures
-  if (credentials.private_key) {
-    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
-  }
+  const auth = new google.auth.JWT(
+    clientEmail,
+    null,
+    privateKey,
+    ['https://www.googleapis.com/auth/spreadsheets']
+  );
 
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-  });
   return google.sheets({ version: 'v4', auth });
 }
 
@@ -45,12 +40,10 @@ app.post('/api/auth/register', async (req, res) => {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
 
-    // Check existing users in 'Users' sheet tab
     let check;
     try {
       check = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
     } catch (e) {
-      // Create Users tab if it doesn't exist
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: { requests: [{ addSheet: { properties: { title: 'Users' } } }] }
@@ -59,9 +52,7 @@ app.post('/api/auth/register', async (req, res) => {
     }
 
     const rows = check.data.values || [];
-    const userExists = rows.some(r => r[0] === phone);
-
-    if (userExists) {
+    if (rows.some(r => r[0] === phone)) {
       return res.status(400).json({ error: 'رقم الهاتف مستخدم بالفعل' });
     }
 
@@ -87,7 +78,6 @@ app.post('/api/auth/login', async (req, res) => {
 
     const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
     const rows = response.data.values || [];
-    
     const user = rows.find(r => r[0] === phone && r[2] === password);
 
     if (!user) {
