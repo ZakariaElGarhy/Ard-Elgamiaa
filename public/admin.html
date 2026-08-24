@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>لوحة التحكم - إدارة الجمعية</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <div id="adminAuth" class="card">
+    <h2>تسجيل دخول الإدارة</h2>
+    <input type="password" id="adminKey" placeholder="مفتاح الصلاحية">
+    <button onclick="fetchAdminData()" class="btn btn-primary">عرض البيانات</button>
+  </div>
+
+  <div id="adminDashboard" class="main-container hidden">
+    <div class="top-bar">
+      <h2>سجلات تحديث البيانات المسجلة</h2>
+      <p>بيانات الأعضاء الرسمية والمستندات المرفقة</p>
+    </div>
+
+    <div style="overflow-x:auto;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>الاسم</th>
+            <th>الرقم القومي</th>
+            <th>الهاتف</th>
+            <th>القطعة</th>
+            <th>المستندات المرفقة</th>
+            <th>التوقيع الرسمى</th>
+          </tr>
+        </thead>
+        <tbody id="adminBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    async function fetchAdminData() {
+      const key = document.getElementById('adminKey').value;
+      const res = await fetch('/api/admin/submissions', { headers: { 'x-admin-key': key } });
+      if (!res.ok) return alert('رمز غير صحيح');
+      
+      const data = await res.json();
+      document.getElementById('adminAuth').classList.add('hidden');
+      document.getElementById('adminDashboard').classList.remove('hidden');
+
+      const tbody = document.getElementById('adminBody');
+      tbody.innerHTML = data.map(r => `
+        <tr>
+          <td><b>${r.id}</b></td>
+          <td><b>${r.full_name}</b></td>
+          <td>${r.national_id}</td>
+          <td>${r.phone}</td>
+          <td>${r.plot_no} (${r.plot_area}م²)</td>
+          <td>
+            ${r.doc_id_path ? `<a href="${r.doc_id_path}" target="_blank" class="btn-link">بطاقة العضو</a>` : 'لا يوجد'}
+            ${r.doc_auth_path ? `<a href="${r.doc_auth_path}" target="_blank" class="btn-link">بطاقة المفوض</a>` : ''}
+          </td>
+          <td><img src="${r.signature_path}" style="height:40px; background:#fff; padding:2px; border-radius:4px;"></td>
+        </tr>
+      `).join('');
+    }
+  </script>
+</body>
+</html>

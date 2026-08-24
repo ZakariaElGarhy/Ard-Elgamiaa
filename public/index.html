@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تحديث البيانات - الجمعية التعاونية للبناء والإسكان</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Auth Screen -->
+  <div id="authScreen" class="auth-wrapper">
+    <div class="brand-header">
+      <h1>الجمعية التعاونية للبناء والإسكان</h1>
+      <p>للعاملين بديوان عام محافظة جنوب سيناء ومديريات الخدمات (مُشهرة برقم 13 لسنة 1993)</p>
+    </div>
+    
+    <div id="loginBox" class="card">
+      <h2>تسجيل الدخول</h2>
+      <div class="field">
+        <label>رقم الهاتف المحمول</label>
+        <input type="tel" id="loginPhone" class="num-only" maxlength="11" placeholder="01XXXXXXXXX">
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="loginPass" placeholder="••••••••">
+      </div>
+      <button onclick="login()" class="btn btn-primary">دخول</button>
+      <p class="switch-link">ليس لديك حساب؟ <a href="#" onclick="toggleAuth('register')">إنشاء حساب جديد</a></p>
+    </div>
+
+    <div id="registerBox" class="card hidden">
+      <h2>إنشاء حساب جديد</h2>
+      <div class="field">
+        <label>الاسم رباعي (كما بالرقم القومي)</label>
+        <input type="text" id="regName" placeholder="أدخل اسمك الرباعي">
+      </div>
+      <div class="field">
+        <label>رقم الهاتف المحمول</label>
+        <input type="tel" id="regPhone" class="num-only" maxlength="11" placeholder="01XXXXXXXXX">
+      </div>
+      <div class="field">
+        <label>كلمة المرور</label>
+        <input type="password" id="regPass" placeholder="••••••••">
+      </div>
+      <button onclick="register()" class="btn btn-primary">تسجيل الحساب</button>
+      <p class="switch-link">لديك حساب بالفعل؟ <a href="#" onclick="toggleAuth('login')">تسجيل الدخول</a></p>
+    </div>
+  </div>
+
+  <!-- Form Screen -->
+  <div id="formScreen" class="main-container hidden">
+    <div class="top-bar">
+      <h2>استمارة تحديث بيانات عضو / مالك</h2>
+      <p>يرجى مراجعة كافة البيانات ودقتها قبل الإرسال</p>
+    </div>
+
+    <form id="coopForm" onsubmit="event.preventDefault(); submitForm();">
+      
+      <!-- Section 1 -->
+      <div class="form-section">
+        <div class="section-title">01. البيانات الشخصية والوظيفية</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>الاسم رباعي (كما بالرقم القومي) <span class="req">*</span></label>
+            <input type="text" id="full_name" required oninput="syncDeclarationName(this.value)">
+          </div>
+          <div class="field">
+            <label>الرقم القومي (14 رقم) <span class="req">*</span></label>
+            <input type="text" id="national_id" class="num-only" maxlength="14" placeholder="2990101XXXXXXXX" required oninput="parseNationalID(this.value)">
+            <span id="idValidationMsg" class="hint-msg"></span>
+          </div>
+          <div class="field">
+            <label>تاريخ الميلاد (تلقائي)</label>
+            <input type="date" id="dob" readonly class="readonly-field">
+          </div>
+          <div class="field">
+            <label>محل الميلاد / المحافظة (تلقائي)</label>
+            <input type="text" id="birth_governorate" readonly class="readonly-field">
+          </div>
+          <div class="field">
+            <label>الوظيفة / جهة العمل</label>
+            <input type="text" id="job_title">
+          </div>
+          <div class="field">
+            <label>الدرجة الوظيفية (إن وجدت)</label>
+            <input type="text" id="job_grade">
+          </div>
+        </div>
+        <div class="radio-row">
+          <label class="radio-label-title">حالة العضوية:</label>
+          <label class="custom-radio"><input type="radio" name="membership_status" value="عضو" checked> <span>عضو</span></label>
+          <label class="custom-radio"><input type="radio" name="membership_status" value="متنازل اليه"> <span>متنازل إليه</span></label>
+        </div>
+      </div>
+
+      <!-- Section 2 -->
+      <div class="form-section">
+        <div class="section-title">02. بيانات الاتصال والعنوان</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>رقم الهاتف المحمول <span class="req">*</span></label>
+            <input type="tel" id="phone" class="num-only" maxlength="11" required>
+          </div>
+          <div class="field">
+            <label>رقم الواتساب</label>
+            <input type="tel" id="whatsapp_no" class="num-only" maxlength="11">
+          </div>
+          <div class="field">
+            <label>رقم هاتف إضافي / أرضي</label>
+            <input type="tel" id="landline_no" class="num-only">
+          </div>
+          <div class="field">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="email">
+          </div>
+        </div>
+        <div class="grid-3">
+          <div class="field">
+            <label>المحافظة <span class="req">*</span></label>
+            <input type="text" id="governorate" required>
+          </div>
+          <div class="field">
+            <label>المدينة <span class="req">*</span></label>
+            <input type="text" id="city" required>
+          </div>
+          <div class="field">
+            <label>المركز / الحي <span class="req">*</span></label>
+            <input type="text" id="district" required>
+          </div>
+        </div>
+        <div class="field">
+          <label>عنوان الإقامة الحالي التفصيلي <span class="req">*</span></label>
+          <input type="text" id="detailed_address" required>
+        </div>
+      </div>
+
+      <!-- Section 3 -->
+      <div class="form-section">
+        <div class="section-title">03. بيانات العضوية والقطعة</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>رقم العضوية بالجمعية</label>
+            <input type="text" id="membership_no" class="num-only">
+          </div>
+          <div class="field">
+            <label>تاريخ الانضمام</label>
+            <input type="date" id="join_date">
+          </div>
+          <div class="field">
+            <label>رقم القطعة <span class="req">*</span></label>
+            <input type="text" id="plot_no" class="num-only" required>
+          </div>
+          <div class="field">
+            <label>المساحة (م²)</label>
+            <input type="text" id="plot_area" class="num-only">
+          </div>
+        </div>
+        <div class="radio-row">
+          <label class="radio-label-title">موقف البناء / التنفيذ:</label>
+          <label class="custom-radio"><input type="radio" name="construction_status" value="أرض فضاء" checked> <span>أرض فضاء</span></label>
+          <label class="custom-radio"><input type="radio" name="construction_status" value="تحت الإنشاء"> <span>تحت الإنشاء</span></label>
+          <label class="custom-radio"><input type="radio" name="construction_status" value="مبني دور"> <span>مبني دور</span></label>
+          <label class="custom-radio"><input type="radio" name="construction_status" value="مبني بالكامل"> <span>مبني بالكامل</span></label>
+        </div>
+        <div class="radio-row">
+          <label class="radio-label-title">الموقف من السكن:</label>
+          <label class="custom-radio"><input type="radio" name="residency_status" value="مقيم" checked> <span>مقيم</span></label>
+          <label class="custom-radio"><input type="radio" name="residency_status" value="غير مقيم"> <span>غير مقيم</span></label>
+        </div>
+      </div>
+
+      <!-- Section 4 -->
+      <div class="form-section">
+        <div class="section-title">04. الشخص المفوض للتواصل (عند عدم الوصول للعضو)</div>
+        <div class="grid-3">
+          <div class="field">
+            <label>اسم المفوض</label>
+            <input type="text" id="emergency_name">
+          </div>
+          <div class="field">
+            <label>صلة القرابة</label>
+            <input type="text" id="emergency_kinship">
+          </div>
+          <div class="field">
+            <label>رقم هاتف المفوض</label>
+            <input type="tel" id="emergency_phone" class="num-only" maxlength="11">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5 -->
+      <div class="form-section">
+        <div class="section-title">05. المستندات المرفقة (رفع الملفات)</div>
+        <div class="grid-2">
+          <div class="field">
+            <label>صورة بطاقة الرقم القومي سارية (للعضو)</label>
+            <input type="file" id="doc_id_file" accept="image/*,.pdf" class="file-input">
+          </div>
+          <div class="field">
+            <label>صورة بطاقة الرقم القومي للمفوض (إن وجد)</label>
+            <input type="file" id="doc_auth_file" accept="image/*,.pdf" class="file-input">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6 -->
+      <div class="form-section">
+        <div class="section-title">06. الإقرار والتوقيع الإلكتروني</div>
+        
+        <div class="declaration-box">
+          أقر أنا السيد / 
+          <input type="text" id="declaration_name" class="inline-input" placeholder="اكتب اسمك هنا" required> 
+          بأن جميع البيانات المدونة أعلاه صحيحة وعلى مسؤوليتي الشخصية، وأتعهد بإخطار إدارة الجمعية فور حدوث أي تغيير في هذه البيانات (خاصة الأرقام والعناوين) وأتحمل المسئولية القانونية كاملة في حالة عدم الإبلاغ.
+        </div>
+
+        <div class="signature-wrapper">
+          <label>توقيع العضو / المالك (ارسم توقيعك بالأسفل): <span class="req">*</span></label>
+          <canvas id="signatureCanvas" width="400" height="150"></canvas>
+          <button type="button" onclick="clearCanvas()" class="btn btn-secondary btn-sm">مسح والتوقيع مجدداً</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-submit">تأكيد وإرسال الاستمارة</button>
+    </form>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
