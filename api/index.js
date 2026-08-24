@@ -13,26 +13,22 @@ const EXCEL_HEADER_ROW = [
 ];
 
 function getSheetsClient() {
-  const clientEmail = process.env.GOOGLE_CLIENT_EMAIL;
-  let privateKey = process.env.GOOGLE_PRIVATE_KEY;
-
-  if (!clientEmail || !privateKey) {
-    throw new Error('MISSING_ENV_VARS: Make sure GOOGLE_CLIENT_EMAIL and GOOGLE_PRIVATE_KEY are set.');
+  const base64Creds = process.env.GOOGLE_CREDENTIALS_BASE64;
+  if (!base64Creds) {
+    throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS_BASE64 is not set in Vercel');
   }
 
-  // Sanitize key breaks in case Vercel wraps or escapes them
-  privateKey = privateKey.replace(/^"(.*)"$/, '$1').replace(/\\n/g, '\n');
+  // Safely decode Base64 string back into standard JSON object
+  const jsonString = Buffer.from(base64Creds, 'base64').toString('utf8');
+  const credentials = JSON.parse(jsonString);
 
-  const auth = new google.auth.JWT(
-    clientEmail,
-    null,
-    privateKey,
-    ['https://www.googleapis.com/auth/spreadsheets']
-  );
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
 
   return google.sheets({ version: 'v4', auth });
 }
-
 // User Register Endpoint
 app.post('/api/auth/register', async (req, res) => {
   const { phone, full_name, password } = req.body;
