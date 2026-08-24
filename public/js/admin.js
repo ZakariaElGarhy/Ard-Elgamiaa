@@ -1,36 +1,44 @@
-async function fetchAdminData() {
-  const adminKey = document.getElementById('adminKey').value;
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.querySelector('form') || document.getElementById('adminLoginForm');
+  const passInput = document.querySelector('input[type="password"]');
 
-  const res = await fetch('/api/admin/submissions', {
-    headers: { 'x-admin-key': adminKey }
+  if (!form || !passInput) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const password = passInput.value.trim();
+
+    if (!password) {
+      alert('برجاء أدخل كلمة المرور');
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
+
+      const result = await res.json();
+
+      if (!res.ok || result.error) {
+        alert(result.error || 'كلمة المرور غير صحيحة');
+        return;
+      }
+
+      alert('تم تسجيل الدخول بنجاح!');
+      console.log('بيانات المسجلين:', result.data || result.rows);
+      
+      // If your admin.html has a data container, render the results
+      const dataContainer = document.getElementById('dataContainer') || document.getElementById('results');
+      if (dataContainer && (result.data || result.rows)) {
+        const rows = result.data || result.rows;
+        dataContainer.innerHTML = `<pre>${JSON.stringify(rows, null, 2)}</pre>`;
+      }
+    } catch (err) {
+      console.error(err);
+      alert('حدث خطأ أثناء الاتصال بالخادم');
+    }
   });
-
-  if (!res.ok) {
-    alert('مفتاح المرور غير صحيح');
-    return;
-  }
-
-  const records = await res.json();
-  
-  document.getElementById('adminAuth').classList.add('hidden');
-  document.getElementById('adminDashboard').classList.remove('hidden');
-
-  const tbody = document.querySelector('#recordsTable tbody');
-  tbody.innerHTML = '';
-
-  records.forEach(row => {
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td>${row.id}</td>
-      <td>${row.full_name}</td>
-      <td>${row.national_id}</td>
-      <td>${row.phone}</td>
-      <td>${row.plot_no}</td>
-      <td>${row.plot_area} م²</td>
-      <td>${row.construction_status}</td>
-      <td><img src="${row.signature}" width="80" height="30"/></td>
-      <td>${new Date(row.created_at).toLocaleDateString('ar-EG')}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
+});

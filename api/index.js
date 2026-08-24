@@ -49,15 +49,8 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-// Handler for Admin Requests
-async function handleAdminAuth(req, res) {
-  const { password } = req.body;
-  const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
-
-  if (String(password || '').trim() !== ADMIN_PASS) {
-    return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
-  }
-
+// Fetch sheet rows for admin
+async function getAdminData(res) {
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -69,17 +62,70 @@ async function handleAdminAuth(req, res) {
     });
 
     const rows = response.data.values || [];
-    res.json({ success: true, data: rows });
+    return res.json({ success: true, data: rows, rows });
   } catch (err) {
     console.error('ADMIN_ERROR:', err);
-    res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: err.message });
   }
 }
 
-// Support multiple endpoint URLs used by admin.html
+// Dedicated Admin Auth Handler
+async function handleAdminAuth(req, res) {
+  const password = req.body.password || req.body.pass || req.body.adminPassword;
+  const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
+
+  if (String(password || '').trim() !== ADMIN_PASS) {
+    return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
+  }
+
+  return getAdminData(res);
+}
+
+// Express Routes for Admin
 app.post('/api/admin/login', handleAdminAuth);
 app.post('/api/admin/get-data', handleAdminAuth);
 app.post('/api/admin/data', handleAdminAuth);
+
+// User Login Endpoint (Includes Admin Password Intercept)
+app.post('/api/auth/login', async (req, res) => {
+  const { phone, password, pass, adminPassword } = req.body;
+  const inputPass = String(password || pass || adminPassword || '').trim();
+  const inputPhone = String(phone || '').trim();
+  const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
+
+  // Intercept Admin Login Attempt
+  if (inputPass === ADMIN_PASS && (inputPhone === '01000000000' || inputPhone === '1000000000' || inputPhone === '' || inputPhone === 'admin')) {
+    return getAdminData(res);
+  }
+
+  try {
+    const sheets = getSheetsClient();
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set in Vercel');
+
+    let response;
+    try {
+      response = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
+    } catch (e) {
+      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    }
+
+    const rows = response.data.values || [];
+    const normalize = (val) => String(val || '').trim().replace(/^0+/, '');
+    const targetPhone = normalize(inputPhone);
+
+    const user = rows.find(r => normalize(r[0]) === targetPhone && String(r[2] || '').trim() === inputPass);
+
+    if (!user) {
+      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
+    }
+
+    res.json({ success: true, userId: Date.now(), name: user[1], phone: user[0] });
+  } catch (err) {
+    console.error('LOGIN_ERROR:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // User Register Endpoint
 app.post('/api/auth/register', async (req, res) => {
@@ -115,45 +161,6 @@ app.post('/api/auth/register', async (req, res) => {
     res.json({ success: true, userId: Date.now(), name: full_name, phone });
   } catch (err) {
     console.error('REGISTER_ERROR:', err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// User Login Endpoint (Handles both standard user login and single-password admin requests)
-app.post('/api/auth/login', async (req, res) => {
-  const { phone, password } = req.body;
-
-  // If request comes from admin.html with only a password
-  if (!phone && password) {
-    return handleAdminAuth(req, res);
-  }
-
-  try {
-    const sheets = getSheetsClient();
-    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
-    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set in Vercel');
-
-    let response;
-    try {
-      response = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
-    } catch (e) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
-    }
-
-    const rows = response.data.values || [];
-    const normalize = (val) => String(val || '').trim().replace(/^0+/, '');
-    const targetPhone = normalize(phone);
-    const targetPass = String(password || '').trim();
-
-    const user = rows.find(r => normalize(r[0]) === targetPhone && String(r[2] || '').trim() === targetPass);
-
-    if (!user) {
-      return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
-    }
-
-    res.json({ success: true, userId: Date.now(), name: user[1], phone: user[0] });
-  } catch (err) {
-    console.error('LOGIN_ERROR:', err);
     res.status(500).json({ error: err.message });
   }
 });
