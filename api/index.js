@@ -17,9 +17,16 @@ function getSheetsClient() {
     throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS is not set in Vercel');
   }
 
-  const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+  let credentials;
+  try {
+    credentials = typeof process.env.GOOGLE_CREDENTIALS === 'string'
+      ? JSON.parse(process.env.GOOGLE_CREDENTIALS)
+      : process.env.GOOGLE_CREDENTIALS;
+  } catch (e) {
+    throw new Error('FAILED_TO_PARSE: GOOGLE_CREDENTIALS is not valid JSON');
+  }
 
-  // Fix escaped newlines in private key caused by environment variables
+  // Convert literal '\n' characters into real line breaks required by RSA JWT signatures
   if (credentials.private_key) {
     credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
   }
