@@ -18,9 +18,13 @@ function getSheetsClient() {
     throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS_BASE64 is not set in Vercel');
   }
 
-  // Safely decode Base64 string back into standard JSON object
-  const jsonString = Buffer.from(base64Creds, 'base64').toString('utf8');
-  const credentials = JSON.parse(jsonString);
+  let credentials;
+  try {
+    const jsonString = Buffer.from(base64Creds.trim(), 'base64').toString('utf8');
+    credentials = JSON.parse(jsonString);
+  } catch (err) {
+    throw new Error('INVALID_BASE64: Failed to parse GOOGLE_CREDENTIALS_BASE64 string');
+  }
 
   const auth = new google.auth.GoogleAuth({
     credentials,
@@ -29,12 +33,14 @@ function getSheetsClient() {
 
   return google.sheets({ version: 'v4', auth });
 }
+
 // User Register Endpoint
 app.post('/api/auth/register', async (req, res) => {
   const { phone, full_name, password } = req.body;
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set in Vercel');
 
     let check;
     try {
@@ -61,6 +67,7 @@ app.post('/api/auth/register', async (req, res) => {
 
     res.json({ success: true, userId: Date.now(), name: full_name, phone });
   } catch (err) {
+    console.error('REGISTER_ERROR:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -71,6 +78,7 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set in Vercel');
 
     const response = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
     const rows = response.data.values || [];
@@ -82,7 +90,8 @@ app.post('/api/auth/login', async (req, res) => {
 
     res.json({ success: true, userId: Date.now(), name: user[1], phone: user[0] });
   } catch (err) {
-    res.status(500).json({ error: 'خطأ في الاتصال بقاعدة البيانات: ' + err.message });
+    console.error('LOGIN_ERROR:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -92,6 +101,7 @@ app.post('/api/submit-form', async (req, res) => {
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set in Vercel');
 
     const check = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Sheet1!A1:Z1' });
     if (!check.data.values || check.data.values.length === 0) {
@@ -116,6 +126,7 @@ app.post('/api/submit-form', async (req, res) => {
 
     res.json({ success: true });
   } catch (err) {
+    console.error('SUBMIT_ERROR:', err);
     res.status(500).json({ error: err.message });
   }
 });
