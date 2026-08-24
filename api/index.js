@@ -12,7 +12,6 @@ const EXCEL_HEADER_ROW = [
   'هاتف المفوض', 'بطاقة العضو (Base64)', 'بطاقة المفوض (Base64)', 'التوقيع (Base64)', 'تاريخ التسجيل'
 ];
 
-// Helper to keep cell values under Google Sheets 50,000 character limit
 function sanitizeCell(val) {
   if (!val) return 'لا يوجد';
   const str = String(val);
@@ -28,7 +27,6 @@ function getSheetsClient() {
     throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS_BASE64 is not set in Vercel');
   }
 
-  // Strip wrapping quotes, outer spaces, and formatting wraps added by Vercel
   base64Creds = base64Creds.replace(/^["']|["']$/g, '').replace(/\s+/g, '').trim();
 
   let credentials;
@@ -51,6 +49,38 @@ function getSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
+// Handler for Admin Requests
+async function handleAdminAuth(req, res) {
+  const { password } = req.body;
+  const ADMIN_PASS = process.env.ADMIN_PASSWORD || '12345678';
+
+  if (String(password || '').trim() !== ADMIN_PASS) {
+    return res.status(401).json({ error: 'كلمة المرور غير صحيحة' });
+  }
+
+  try {
+    const sheets = getSheetsClient();
+    const spreadsheetId = process.env.GOOGLE_SHEET_ID;
+    if (!spreadsheetId) throw new Error('MISSING_ENV_VAR: GOOGLE_SHEET_ID is not set');
+
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId,
+      range: 'Sheet1!A:Z',
+    });
+
+    const rows = response.data.values || [];
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('ADMIN_ERROR:', err);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+// Support multiple endpoint URLs used by admin.html
+app.post('/api/admin/login', handleAdminAuth);
+app.post('/api/admin/get-data', handleAdminAuth);
+app.post('/api/admin/data', handleAdminAuth);
+
 // User Register Endpoint
 app.post('/api/auth/register', async (req, res) => {
   const { phone, full_name, password } = req.body;
@@ -63,7 +93,6 @@ app.post('/api/auth/register', async (req, res) => {
     try {
       check = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
     } catch (e) {
-      // Auto-create 'Users' tab if it doesn't exist yet
       await sheets.spreadsheets.batchUpdate({
         spreadsheetId,
         requestBody: { requests: [{ addSheet: { properties: { title: 'Users' } } }] }
@@ -90,9 +119,15 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// User Login Endpoint
+// User Login Endpoint (Handles both standard user login and single-password admin requests)
 app.post('/api/auth/login', async (req, res) => {
   const { phone, password } = req.body;
+
+  // If request comes from admin.html with only a password
+  if (!phone && password) {
+    return handleAdminAuth(req, res);
+  }
+
   try {
     const sheets = getSheetsClient();
     const spreadsheetId = process.env.GOOGLE_SHEET_ID;
@@ -102,12 +137,15 @@ app.post('/api/auth/login', async (req, res) => {
     try {
       response = await sheets.spreadsheets.values.get({ spreadsheetId, range: 'Users!A:C' });
     } catch (e) {
-      // Return authentication error gracefully if 'Users' tab has not been created
       return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
     }
 
     const rows = response.data.values || [];
-    const user = rows.find(r => r[0] === phone && r[2] === password);
+    const normalize = (val) => String(val || '').trim().replace(/^0+/, '');
+    const targetPhone = normalize(phone);
+    const targetPass = String(password || '').trim();
+
+    const user = rows.find(r => normalize(r[0]) === targetPhone && String(r[2] || '').trim() === targetPass);
 
     if (!user) {
       return res.status(401).json({ error: 'بيانات الدخول غير صحيحة' });
@@ -137,33 +175,12 @@ app.post('/api/submit-form', async (req, res) => {
 
     const row = [
       Date.now(),
-      sanitizeCell(data.full_name),
-      sanitizeCell(data.national_id),
-      sanitizeCell(data.dob),
-      sanitizeCell(data.birth_governorate),
-      sanitizeCell(data.job_title),
-      sanitizeCell(data.job_grade),
-      sanitizeCell(data.membership_status),
-      sanitizeCell(data.phone),
-      sanitizeCell(data.whatsapp_no),
-      sanitizeCell(data.landline_no),
-      sanitizeCell(data.email),
-      sanitizeCell(data.governorate),
-      sanitizeCell(data.city),
-      sanitizeCell(data.district),
-      sanitizeCell(data.detailed_address),
-      sanitizeCell(data.membership_no),
-      sanitizeCell(data.join_date),
-      sanitizeCell(data.plot_no),
-      sanitizeCell(data.plot_area),
-      sanitizeCell(data.construction_status),
-      sanitizeCell(data.residency_status),
-      sanitizeCell(data.emergency_name),
-      sanitizeCell(data.emergency_kinship),
-      sanitizeCell(data.emergency_phone),
-      sanitizeCell(data.doc_id_file),
-      sanitizeCell(data.doc_auth_file),
-      sanitizeCell(data.signature),
+      sanitizeCell(data.full_name), sanitizeCell(data.national_id), sanitizeCell(data.dob), sanitizeCell(data.birth_governorate),
+      sanitizeCell(data.job_title), sanitizeCell(data.job_grade), sanitizeCell(data.membership_status), sanitizeCell(data.phone), sanitizeCell(data.whatsapp_no),
+      sanitizeCell(data.landline_no), sanitizeCell(data.email), sanitizeCell(data.governorate), sanitizeCell(data.city), sanitizeCell(data.district), sanitizeCell(data.detailed_address),
+      sanitizeCell(data.membership_no), sanitizeCell(data.join_date), sanitizeCell(data.plot_no), sanitizeCell(data.plot_area), sanitizeCell(data.construction_status),
+      sanitizeCell(data.residency_status), sanitizeCell(data.emergency_name), sanitizeCell(data.emergency_kinship), sanitizeCell(data.emergency_phone),
+      sanitizeCell(data.doc_id_file), sanitizeCell(data.doc_auth_file), sanitizeCell(data.signature),
       new Date().toLocaleString('ar-EG')
     ];
 
