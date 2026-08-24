@@ -13,7 +13,17 @@ const EXCEL_HEADER_ROW = [
 ];
 
 function getSheetsClient() {
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    throw new Error('MISSING_ENV_VAR: GOOGLE_CREDENTIALS is not set in Vercel');
+  }
+
   const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+
+  // Fix escaped newlines in private key caused by environment variables
+  if (credentials.private_key) {
+    credentials.private_key = credentials.private_key.replace(/\\n/g, '\n');
+  }
+
   const auth = new google.auth.GoogleAuth({
     credentials,
     scopes: ['https://www.googleapis.com/auth/spreadsheets'],
